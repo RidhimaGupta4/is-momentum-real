@@ -1,0 +1,29 @@
+chance fitted
+open_chance fitted
+box_entry fitted
+shot fitted
+  kind spec scope                        estimand  log_rr     se  rate_ratio  rr_lo  rr_hi      p  p_holm
+chance   M2   all  self_excitation_0_2_vs_earlier -0.1622 0.0122      0.8503 0.8302 0.8708 0.0000  0.0000
+chance   M2   all cross_excitation_0_2_vs_earlier -0.3518 0.0140      0.7034 0.6844 0.7230 0.0000  0.0000
+chance   M2   all        scorer_after_scoring_0-2 -0.5920 0.0567      0.5532 0.4951 0.6182 0.0000  0.0000
+chance   M2   all        scorer_after_scoring_2-5  0.0239 0.0285      1.0241 0.9686 1.0829 0.4019  0.9988
+chance   M2   all       scorer_after_scoring_5-10  0.0229 0.0237      1.0232 0.9768 1.0718 0.3329  0.9988
+chance   M2   all    conceder_after_conceding_0-2 -0.1709 0.0448      0.8429 0.7721 0.9203 0.0001  0.0007
+chance   M2   all    conceder_after_conceding_2-5 -0.0605 0.0285      0.9413 0.8902 0.9954 0.0338  0.1352
+chance   M2   all   conceder_after_conceding_5-10 -0.0160 0.0232      0.9841 0.9403 1.0298 0.4890  0.9988
+comparison  h2_matches  h2_events  ll_gain_total   ci_lo   ci_hi  ll_gain_per_match  share_matches_improved
+  M1 vs M0         760      17464        240.369 194.646 285.860              0.316                   0.658
+  M2 vs M1         760      17464         25.098  14.239  35.737              0.033                   0.596
+  M2 vs M0         760      17464        265.468 219.707 311.965              0.349                   0.675
+spec  n_events  n_windows  km_max_abs_diff  uniform_ks  uniform_ks_p
+  M0     17464       3040           0.0361      0.0177        0.0000
+  M2     17464       3040           0.0289      0.0155        0.0004
+    side window  observed  expected  o_over_e  ci_lo  ci_hi  exposure_min  matches
+  scorer    0-2     151.0   239.181     0.631  0.543  0.724      2098.350      699
+  scorer    2-5     691.0   728.992     0.948  0.877  1.025      5495.024      693
+  scorer   5-10    1014.0  1044.928     0.970  0.912  1.031      8138.569      687
+  scorer  10-20    1536.0  1618.799     0.949  0.905  0.996     12567.542      662
+conceder    0-2     252.0   210.137     1.199  1.055  1.349      2098.350      699
+conceder    2-5     667.0   714.425     0.934  0.862  1.004      5495.024      693
+conceder   5-10    1051.0  1046.879     1.004  0.940  1.065      8138.569      687
+conceder  10-20    1657.0  1676.299     0.988  0.945  1.034     12567.542      662

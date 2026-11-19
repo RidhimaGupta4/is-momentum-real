@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Is momentum real? Build a match · StatsBomb 2015/16</title>
+<meta name="description" content="Place chances and goals on a 90-minute timeline and see how a self-exciting point-process model, fitted on 1,517 matches of StatsBomb event data, expects each team's chance rate to respond.">
+<style>
+/*__FONTS_CSS__*/
+:root { color-scheme: dark; --bg:#121211; --surface:#1a1a19; --raise:#232321; --ink:#f0efec; --ink2:#c3c2b7; --muted:#9a998f;
+  --line:#34342f; --grid:#2a2a26; --home:#3987e5; --away:#d95926; --focus:#9ec5f4; --pitch:#1f3326; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 'Barlow',system-ui,sans-serif; }
+h1, h2, .cond { font-family:'Barlow Condensed','Barlow',system-ui,sans-serif; }
+:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+a { color:var(--focus); }
+.wrap { max-width:1240px; margin:0 auto; padding:26px 22px 40px; }
+.top { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+.kicker { font:600 13px 'Barlow Condensed',sans-serif; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin:0 0 4px; }
+h1 { font-size:46px; line-height:1; margin:0 0 10px; font-weight:700; }
+h1 span { color:var(--muted); }
+.lede { margin:0; color:var(--ink2); max-width:760px; font-size:16px; }
+.credit { text-align:right; font-size:12px; color:var(--muted); }
+.credit .chip { background:#fcfcfb; border-radius:8px; padding:8px 10px; display:inline-block; }
+.credit img { width:170px; display:block; }
+.findings { display:grid; grid-template-columns:repeat(3,1fr); gap:0; margin:22px 0 18px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); }
+.findings div { padding:12px 16px 12px 0; }
+.findings div + div { border-left:1px solid var(--line); padding-left:16px; }
+.findings b { display:block; font:700 30px/1.05 'Barlow Condensed',sans-serif; }
+.findings span { color:var(--ink2); font-size:13.5px; }
+@media (max-width:800px) { .findings { grid-template-columns:1fr; } .findings div + div { border-left:0; border-top:1px solid var(--line); padding-left:0; } h1 { font-size:36px; } }
+.stage { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px 10px; }
+.toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:8px; }
+.toolbar .lbl { color:var(--muted); font-size:13px; margin-right:4px; }
+.toolbar select { padding:6px 8px; }
+.tool { all:unset; cursor:pointer; padding:6px 12px; border-radius:999px; border:1px solid var(--line); font-size:14px; color:var(--ink2); }
+.tool[aria-pressed=true] { background:var(--raise); color:var(--ink); border-color:#5a5a52; }
+.tool:focus-visible { outline:2px solid var(--focus); }
+.dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+.btn { all:unset; cursor:pointer; padding:6px 12px; border-radius:6px; background:var(--raise); border:1px solid var(--line); font-size:13.5px; color:var(--ink); }
+.btn:focus-visible { outline:2px solid var(--focus); }
+.spacer { flex:1; }
+svg text { font-family:'Barlow',sans-serif; }
+.chart { position:relative; }
+.tip { position:absolute; pointer-events:none; background:#f0efec; color:#121211; font-size:12.5px; padding:6px 8px; border-radius:5px; display:none; white-space:nowrap; z-index:3; }
+.scroll { overflow-x:auto; }
+.hint { display:none; font-size:12.5px; color:var(--muted); margin:0 0 4px; }
+@media (max-width:800px) { .hint { display:block; } }
+@media (max-width:800px) { .chart { min-width:900px; } .credit { text-align:left; } }
+.legend { display:flex; flex-wrap:wrap; gap:16px; font-size:12.5px; color:var(--ink2); margin:2px 0 6px 54px; }
+.legend i { display:inline-block; width:24px; height:0; vertical-align:middle; margin-right:6px; }
+.below { display:grid; grid-template-columns:1.1fr 1fr 1fr; gap:16px; margin-top:16px; }
+@media (max-width:900px) { .below { grid-template-columns:1fr; } }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.card h2 { margin:0 0 6px; font-size:20px; font-weight:600; }
+.wf { display:grid; grid-template-columns:auto 1fr 1fr; gap:3px 10px; font-size:13.5px; align-items:center; }
+.wf .h { color:var(--muted); font-size:12px; }
+.wf .v { font-variant-numeric:tabular-nums; text-align:right; line-height:1.1; }
+.wf .v small { display:block; font-size:10.5px; color:var(--muted); white-space:nowrap; font-weight:400; font-family:'Barlow',sans-serif; }
+.summary { font-size:14.5px; color:var(--ink); background:var(--raise); border-radius:6px; padding:8px 10px; margin:0 0 10px; }
+.wf .bar { position:relative; height:12px; }
+.wf .bar i { position:absolute; top:0; height:12px; border-radius:2px; }
+.wf .cell { display:grid; grid-template-columns:1fr 92px; gap:6px; align-items:center; }
+.wf .total { font:600 22px/1.1 'Barlow Condensed',sans-serif; }
+.wf .sep { grid-column:1 / -1; border-top:1px solid var(--line); margin:3px 0; }
+.row { display:grid; grid-template-columns:120px 1fr 54px; gap:8px; align-items:center; font-size:14px; margin:4px 0; }
+input[type=range] { width:100%; accent-color:var(--home); }
+select, input[type=number] { font:14px 'Barlow',sans-serif; background:var(--raise); color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:4px 6px; }
+input[type=number] { width:64px; }
+.add { display:flex; flex-wrap:wrap; gap:6px; align-items:center; font-size:13.5px; margin-top:8px; }
+ul.events { list-style:none; margin:6px 0 0; padding:0; max-height:170px; overflow:auto; font-size:13.5px; }
+ul.events li { display:flex; justify-content:space-between; align-items:center; padding:3px 0; border-bottom:1px solid var(--grid); }
+ul.events button { all:unset; cursor:pointer; color:var(--muted); font-size:12.5px; padding:0 4px; }
+ul.events button:focus-visible { outline:2px solid var(--focus); }
+.notes { margin-top:18px; color:var(--ink2); font-size:13.5px; columns:2; column-gap:28px; }
+@media (max-width:800px) { .notes { columns:1; } }
+.notes p { margin:0 0 8px; break-inside:avoid; }
+.notes b { color:var(--ink); }
+footer { margin-top:16px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:10px; }
+.sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+</style>
+</head>
+<body>
+<main class="wrap">
+<div class="top">
+  <div>
+    <p class="kicker">Momentum in football · a point-process study of 1,517 matches</p>
+    <h1>Is momentum real? <span>Almost not.</span> The score is.</h1>
+    <p class="lede">Build a match: click on the timeline to add chances and goals for either side, and watch how the model expects each
+    team's rate of chances to respond. The dashed lines show the same match with restarts and momentum switched off.</p>
+  </div>
+  <div class="credit"><span class="chip"><img src="data:image/png;base64,/*__LOGO_B64__*/" alt="StatsBomb"></span><br>Data: StatsBomb Open Data</div>
+</div>
+
+<div class="findings" id="findings"></div>
+
+<section class="stage" aria-labelledby="stage-h">
+  <h2 id="stage-h" class="sr">Match timeline</h2>
+  <div class="toolbar" role="toolbar" aria-label="What a click on the timeline adds">
+    <span class="lbl">Click the timeline to add:</span>
+    <button class="tool" data-tool="home-chance" aria-pressed="true"><span class="dot" style="background:var(--home)"></span>Home chance</button>
+    <button class="tool" data-tool="home-goal" aria-pressed="false"><span class="dot" style="background:var(--home);box-shadow:0 0 0 2px #121211,0 0 0 3.5px var(--home)"></span>Home goal</button>
+    <button class="tool" data-tool="away-chance" aria-pressed="false"><span class="dot" style="background:var(--away)"></span>Away chance</button>
+    <button class="tool" data-tool="away-goal" aria-pressed="false"><span class="dot" style="background:var(--away);box-shadow:0 0 0 2px #121211,0 0 0 3.5px var(--away)"></span>Away goal</button>
+    <span class="spacer"></span>
+    <label class="sr" for="scenario">Illustrative scenario</label>
+    <select id="scenario" aria-label="Illustrative scenario (made up, not a real match)">
+      <option value="">Scenarios (illustrative)…</option><option value="example">Example: 1-1 draw</option><option value="early">Early goal, then siege</option>
+      <option value="late">Late drama</option><option value="end2end">End-to-end, no goals</option></select>
+    <button class="btn" id="share">Copy link</button>
+    <button class="btn" id="clear">Clear</button>
+  </div>
+  <p class="hint">Swipe sideways to see the whole match.</p>
+  <div class="scroll"><div class="chart"><svg id="tl" width="100%" viewBox="0 0 1200 430" role="img"></svg><div class="tip" id="tip"></div></div>
+  <div class="legend"><span><i style="border-top:2.6px solid var(--home)"></i>Home</span><span><i style="border-top:2.6px solid var(--away)"></i>Away</span>
+    <span><i style="border-top:2.6px solid #c3c2b7"></i>Full model</span><span><i style="border-top:1.6px dashed #c3c2b7"></i>Momentum and restarts switched off</span>
+    <span class="shade"><i style="background:#3987e5;opacity:.25;height:10px;border:0"></i>Shading: who is leading</span></div>
+  <div class="chart"><svg id="cum" width="100%" viewBox="0 0 1200 200" role="img"></svg></div></div>
+</section>
+
+<div class="below">
+  <section class="card" aria-labelledby="tot-h" aria-live="polite">
+    <h2 id="tot-h">Where the expected chances come from</h2>
+    <p class="summary" id="summary"></p>
+    <div class="wf" id="tot"></div>
+    <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">Expected chances over the whole match, built up step by step for the events you placed
+    (chances that would follow from them are not added back in). Small figures: 95% intervals from the model's cluster-robust covariance (delta method),
+    which carry the uncertainty in the fitted coefficients, not in the events you place.</p>
+  </section>
+  <section class="card" aria-labelledby="str-h">
+    <h2 id="str-h">Team strength</h2>
+    <div class="row"><label for="ah">Home attack</label><input type="range" id="ah" min="-40" max="60" step="5" value="0"><output id="ah-o" for="ah"></output></div>
+    <div class="row"><label for="aa">Away attack</label><input type="range" id="aa" min="-40" max="60" step="5" value="0"><output id="aa-o" for="aa"></output></div>
+    <p style="font-size:12.5px;color:var(--muted);margin:6px 0 0">Chances created per 90 in earlier matches, relative to the league average. Defences average. Home advantage is in the model.</p>
+  </section>
+  <section class="card" aria-labelledby="ev-h">
+    <h2 id="ev-h">Events</h2>
+    <div class="add">
+      <label class="sr" for="nt">Event</label>
+      <select id="nt"><option value="home-chance">Home chance</option><option value="home-goal">Home goal</option><option value="away-chance">Away chance</option><option value="away-goal">Away goal</option></select>
+      <label for="nm">minute</label><input type="number" id="nm" min="0" max="94" value="30">
+      <button class="btn" id="addbtn">Add</button>
+    </div>
+    <ul class="events" id="evlist"></ul>
+  </section>
+</div>
+
+<div class="notes">
+  <p><b>Lower chart.</b> Each team's extra expected chances so far, compared with the same two teams in a match where nothing has happened.
+  A goal's effect is small per minute but lasts for the rest of the match, so the lines drift apart; the gap between solid and dashed is
+  what restarts and momentum add or take away.</p>
+  <p><b>What you are seeing.</b> Each team's rate of chances (possessions that end in a shot) per minute, from the main model fitted on all 1,517
+  matches of the 2015/16 Premier League, La Liga, Serie A and Ligue 1. Curves are computed directly from the fitted coefficients for the
+  events you place. Nothing is simulated and no event data are on this page.</p>
+  <p><b>Solid vs dashed.</b> Solid: full model. Dashed: the same match with restarts and momentum switched off: every chance and goal
+  still counts, but as if it had happened more than 20 minutes earlier, so only the score, the clock, venue, strength and the team's level
+  that day remain. The breakdown splits the gap into restarts (the first two minutes after an event) and momentum (2-20 minutes), the same
+  split as in the analysis.</p>
+  <p><b>Why a goal moves the curves for the rest of the match.</b> The score changes: a trailing team creates about 13% more chances and a
+  leading team about 15% fewer, conditional on strength and the clock. That is a description, not proof of tactics.</p>
+  <p><b>Why curves dip right after an event.</b> After a goal there is about a minute with no play (celebration, kick-off), and after a chance
+  the ball is usually dead (goal kick, corner, keeper), while a rebound in the same attack is part of the same chance by definition.</p>
+  <p><b>The small bump 2-20 minutes after a chance</b> is the momentum effect. It came from an exploratory analysis, not a pre-registered one:
+  about +0.05 chances in total per chance. Halves are drawn as 47 minutes; red cards are not part of this page.</p>
+</div>
+
+<footer>Data: StatsBomb Open Data (2015/16 Premier League, La Liga, Serie A, Ligue 1), used under the StatsBomb Public Data User Agreement.
+Only fitted model coefficients are used on this page; no event data are redistributed. Non-commercial use. Analysis and page: Ridhima Gupta.
+Fonts: Barlow (SIL Open Font License 1.1).</footer>
+</main>
+
+<script>
+/*__DATA_JS__*/
+</script>
+<script>
+/*__RATE_JS__*/
+</script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const HALF = 47 * 60, STEP = 10;
+let tool = "home-chance";
+let events = [];
+const fx = (x, d = 2) => x.toFixed(d);
+const E = DATA.effects;
+$("findings").innerHTML = [
+  [`+${fx(E["trailing by one goal -> extra chances over 30 min"].est)}`, "extra chances over 30 minutes for a team that goes 1-0 down"],
+  [`+${fx(E["own chance -> own extra chances, 2-20 min (momentum, vs earlier-in-match level)"].est)}`, "extra chances in the 20 minutes after a chance: momentum (exploratory)"],
+  [`${fx(E["conceder after conceding -> extra chances, 0-20 min"].est)}`, "extra chances for a team that has just conceded: not 'most vulnerable after scoring', in chances created"],
+].map(([b, s]) => `<div><b>${b}</b><span>${s}</span></div>`).join("");
+
+function opts(mode) {
+  return {attHome: Math.log(1 + +$("ah").value / 100), attAway: Math.log(1 + +$("aa").value / 100), mode};
+}
+function minuteToHalf(m) { return m < 47 ? [1, m * 60] : [2, (m - 47) * 60]; }
+function label(e) { return `${(e.half === 1 ? 0 : 45) + Math.floor(e.t / 60)}'`; }
+function absMin(e) { return (e.half - 1) * 47 + e.t / 60; }
+const MODES = ["full", "restart", "off", "score", "none"];
+
+function curves() {   // per mode: rate per minute each 10 s and running totals (drawing); totals from matchTotal
+  const out = {rate: {}, cum: {}, tot: {}, mt: {}, dead: []};
+  for (const side of ["home", "away"]) for (const mode of MODES) {
+    const k = `${side}_${mode}`;
+    out.rate[k] = []; out.cum[k] = [];
+    let run = 0;
+    for (const half of [1, 2]) {
+      for (let t = 0; t <= HALF; t += STEP) {
+        const r = intensity(side, half, t, events, opts(mode));
+        const dead = designTerms(side, half, t, events, opts(mode)) === null;
+        out.rate[k].push([(half - 1) * 47 + t / 60, dead ? null : r * 60]);
+        out.cum[k].push([(half - 1) * 47 + t / 60, run]);
+        if (t < HALF) run += r * STEP;
+      }
+    }
+    out.mt[k] = matchTotal(side, events, opts(mode));
+    out.tot[k] = out.mt[k].total;
+  }
+  for (const e of events) if (e.kind === "goal") out.dead.push([absMin(e), absMin(e) + DEAD_AFTER_GOAL / 60]);
+  const alias = {home: "home_full", away: "away_full", home0: "home_off", away0: "away_off"};
+  for (const [a, b] of Object.entries(alias)) out[a] = out.rate[b];
+  return out;
+}
+function diffStat(c, side, a, b) { return difference(c.mt[`${side}_${a}`], b ? c.mt[`${side}_${b}`] : null); }
+
+function draw() {
+  $("ah-o").textContent = `${+$("ah").value > 0 ? "+" : ""}${$("ah").value}%`;
+  $("aa-o").textContent = `${+$("aa").value > 0 ? "+" : ""}${$("aa").value}%`;
+  events.sort((a, b) => absMin(a) - absMin(b));
+  const c = curves();
+  const W = 1200, H = 430, m = {l: 54, r: 16, t: 92, b: 40};
+  const X = mn => m.l + mn / 94 * (W - m.l - m.r);
+  const ymax = Math.max(0.2, Math.max(...[c.home, c.away, c.home0, c.away0].flat().map(p => p[1] || 0)) * 1.2);
+  const Y = v => m.t + (1 - v / ymax) * (H - m.t - m.b);
+  const path = (arr, col, dash, w) => {        // one path per half (no line across half-time)
+    const segs = [];
+    let cur = [];
+    arr.forEach((p, i) => {           // break at half-time and at dead time after goals (no chance possible)
+      if (p[1] === null || i === arr.length / 2) { if (cur.length > 1) segs.push(cur); cur = []; }
+      if (p[1] !== null) cur.push(p);
+    });
+    if (cur.length > 1) segs.push(cur);
+    return segs.map(s => `<path d="M${s.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("L")}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? 'stroke-dasharray="6 5" opacity="0.75"' : ""} stroke-linejoin="round"/>`).join("");
+  };
+  let s = `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#151d18"/><line x1="0" y1="0" x2="0" y2="6" stroke="#5a5a52" stroke-width="2"/></pattern></defs>`;
+  s += `<rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="#151d18" rx="4"/>`;
+  for (let v = 0; v <= ymax; v += 0.05) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#26302a"/><text x="${m.l - 8}" y="${Y(v) + 4}" font-size="11" fill="#9a998f" text-anchor="end">${fx(v)}</text>`;
+  s += `<line x1="${X(47)}" x2="${X(47)}" y1="18" y2="${H - m.b}" stroke="#5a5a52" stroke-dasharray="2 4"/><text x="${X(47)}" y="${H - m.b + 30}" font-size="11" fill="#9a998f" text-anchor="middle">half-time</text>`;
+  for (const mn of [0, 15, 30, 45]) s += `<text x="${X(mn)}" y="${H - m.b + 16}" font-size="11" fill="#9a998f" text-anchor="middle">${mn}'</text><text x="${X(47 + mn)}" y="${H - m.b + 16}" font-size="11" fill="#9a998f" text-anchor="middle">${45 + mn}'</text>`;
+  s += `<text x="16" y="${(m.t + H - m.b) / 2}" font-size="12" fill="#c3c2b7" text-anchor="middle" transform="rotate(-90 16 ${(m.t + H - m.b) / 2})">Chances per minute</text>`;
+  // lanes
+  for (const [team, y, col, name] of [["home", 32, "var(--home)", "Home"], ["away", 66, "var(--away)", "Away"]]) {
+    s += `<text x="${m.l - 8}" y="${y + 4}" font-size="12" fill="#c3c2b7" text-anchor="end">${name}</text><line x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}" stroke="#34342f"/>`;
+    events.forEach((e, i) => {
+      if (e.team !== team) return;
+      const x = X(absMin(e));
+      s += e.kind === "goal"
+        ? `<g class="mk" data-i="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="9" fill="${col}" stroke="#121211" stroke-width="2"/><circle cx="${x}" cy="${y}" r="12.5" fill="none" stroke="${col}" stroke-width="1.5"/><title>${name} goal, ${label(e)} (click to remove)</title></g>`
+        : `<g class="mk" data-i="${i}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="6" fill="${col}" stroke="#121211" stroke-width="2"/><title>${name} chance, ${label(e)} (click to remove)</title></g>`;
+    });
+  }
+  // score strip
+  let hs = 0, as = 0;
+  const goals = events.filter(e => e.kind === "goal");
+  let last = 0;
+  const segs = [];
+  for (const g of goals) { segs.push([last, absMin(g), `${hs}-${as}`]); if (g.team === "home") hs++; else as++; last = absMin(g); }
+  segs.push([last, 94, `${hs}-${as}`]);
+  for (const [a, b, sc] of segs) {
+    const [h, w] = sc.split("-").map(Number);
+    if (h !== w) s += `<rect x="${X(a)}" y="${m.t}" width="${X(b) - X(a)}" height="${H - m.t - m.b}" fill="${h > w ? "#3987e5" : "#d95926"}" opacity="0.07"/>`;
+  }
+  for (const [a, b, sc] of segs) if (X(b) - X(a) > 34) s += `<text x="${(X(a) + X(b)) / 2}" y="${m.t + 16}" font-size="12" fill="#f0efec" opacity="0.55" text-anchor="middle" font-weight="600">${sc}</text>`;
+  for (const [a0, b0] of c.dead) {
+    s += `<rect x="${X(a0)}" y="${m.t}" width="${Math.max(3, X(b0) - X(a0))}" height="${H - m.t - m.b}" fill="url(#hatch)"/>`;
+    s += `<text x="${X(a0) + 2}" y="${H - m.b - 6}" font-size="10" fill="#9a998f" transform="rotate(-90 ${X(a0) + 2} ${H - m.b - 6})">kick-off</text>`;
+  }
+  s += path(c.home0, "#3987e5", true, 1.6) + path(c.away0, "#d95926", true, 1.6) + path(c.home, "#3987e5", false, 2.6) + path(c.away, "#d95926", false, 2.6);
+  s += `<line id="cross" y1="${m.t}" y2="${H - m.b}" stroke="#f0efec" opacity="0"/>`;
+  s += `<rect id="hit" x="${m.l}" y="14" width="${W - m.l - m.r}" height="${H - m.b - 14}" fill="transparent" style="cursor:crosshair"/>`;
+  const svg = $("tl");
+  svg.innerHTML = s;
+  // marker clicks must sit above the hit area
+  svg.querySelectorAll(".mk").forEach(g => { svg.appendChild(g); g.addEventListener("click", ev => { ev.stopPropagation(); events.splice(+g.dataset.i, 1); draw(); }); });
+  svg.setAttribute("aria-label", `Match timeline with ${events.length} events. Expected chances: home ${fx(c.tot.home_full)}, away ${fx(c.tot.away_full)}.`);
+  const hit = svg.querySelector("#hit"), cross = svg.querySelector("#cross"), tip = $("tip");
+  const toMin = ev => { const r = svg.getBoundingClientRect(); return Math.max(0, Math.min(94, ((ev.clientX - r.left) * W / r.width - m.l) / (W - m.l - m.r) * 94)); };
+  hit.addEventListener("click", ev => { const mn = toMin(ev); const [half, t] = minuteToHalf(mn); const [team, kind] = tool.split("-"); events.push({team, kind, half, t: Math.min(t, HALF - 1)}); draw(); });
+  hit.addEventListener("mousemove", ev => {
+    const mn = toMin(ev), i = Math.round(mn * 6), r = svg.getBoundingClientRect();
+    const idx = Math.min(c.home.length - 1, mn < 47 ? i : i + 1);
+    cross.setAttribute("x1", X(mn)); cross.setAttribute("x2", X(mn)); cross.setAttribute("opacity", 0.25);
+    const shown = mn < 47 ? `${Math.floor(mn)}'` : `${45 + Math.floor(mn - 47)}'`;
+    const v = x => x === null ? "0 (kick-off)" : fx(x, 3);
+    tip.innerHTML = `${shown}<br>Home ${v(c.home[idx][1])} / min (switched off: ${v(c.home0[idx][1])})<br>Away ${v(c.away[idx][1])} / min (switched off: ${v(c.away0[idx][1])})<br><span style="opacity:.7">click to add: ${tool.replace("-", " ")}</span>`;
+    tip.style.display = "block"; tip.style.left = Math.min(X(mn) / W * r.width + 12, r.width - 300) + "px"; tip.style.top = "8px";
+  });
+  hit.addEventListener("mouseleave", () => { tip.style.display = "none"; cross.setAttribute("opacity", 0); });
+  const sgn = x => `${x >= 0 ? "+" : "−"}${fx(Math.abs(x))}`;
+  const ci = st => `<small>${sgn(st.lo)} to ${sgn(st.hi)}</small>`;
+  const ciLevel = st => `<small>${fx(st.lo)} to ${fx(st.hi)}</small>`;
+  const rows = [["No events at all", "none", null], ["Score effect", "score", "none"], ["Team's level that day", "off", "score"],
+    ["Restarts (first 2 min)", "restart", "off"], ["Momentum (2-20 min)", "full", "restart"]];
+  const scale = 1.2;          // bar width: 1 expected chance = this share of the cell, centred at zero
+  const bar = (v, col) => { const w = Math.min(50, Math.abs(v) / scale * 50); return `<span class="bar"><i style="left:${v >= 0 ? 50 : 50 - w}%;width:${w}%;background:${col}"></i><i style="left:50%;width:1px;background:#5a5a52"></i></span>`; };
+  let html = `<span></span><span class="h">Home</span><span class="h">Away</span>`;
+  const stat = {};
+  for (const [lab, a_, b_] of rows) {
+    const h = diffStat(c, "home", a_, b_), w = diffStat(c, "away", a_, b_);
+    stat[a_] = {home: h, away: w};
+    if (!b_) html += `<span>${lab}</span><span class="cell"><span></span><span class="v">${fx(h.est)}${ciLevel(h)}</span></span><span class="cell"><span></span><span class="v">${fx(w.est)}${ciLevel(w)}</span></span>`;
+    else html += `<span>${lab}</span><span class="cell">${bar(h.est, "var(--home)")}<span class="v">${sgn(h.est)}${ci(h)}</span></span><span class="cell">${bar(w.est, "var(--away)")}<span class="v">${sgn(w.est)}${ci(w)}</span></span>`;
+  }
+  const fh = diffStat(c, "home", "full", null), fa = diffStat(c, "away", "full", null);
+  html += `<span class="sep"></span><span>Full model</span><span class="cell"><span></span><span class="v total" style="color:var(--home)">${fx(fh.est)}${ciLevel(fh)}</span></span><span class="cell"><span></span><span class="v total" style="color:var(--away)">${fx(fa.est)}${ciLevel(fa)}</span></span>`;
+  const sc = stat.score, mo = stat.full;
+  $("summary").innerHTML = events.some(e => e.kind === "goal")
+    ? `In this match the score changes the home side's expected chances by <b>${sgn(sc.home.est)}</b> and the away side's by <b>${sgn(sc.away.est)}</b>; momentum changes them by <b>${sgn(mo.home.est)}</b> and <b>${sgn(mo.away.est)}</b>.`
+    : (events.length ? `No goals yet, so the score has no effect; momentum changes expected chances by <b>${sgn(mo.home.est)}</b> (home) and <b>${sgn(mo.away.est)}</b> (away). Add a goal to compare.`
+                     : "Add chances and goals on the timeline, or pick a scenario.");
+  $("tot").innerHTML = html;
+  drawCum(c);
+  try { history.replaceState(null, "", "#" + encode()); } catch (err) { /* sandboxed: no address updates */ }
+  $("evlist").innerHTML = events.map((e, i) => `<li><span><span class="dot" style="background:var(--${e.team})"></span>${e.team === "home" ? "Home" : "Away"} ${e.kind} · ${label(e)}</span><button data-i="${i}" aria-label="Remove ${e.team} ${e.kind} at ${label(e)}">remove</button></li>`).join("") || "<li>No events: click the timeline.</li>";
+  $("evlist").querySelectorAll("button").forEach(b => b.addEventListener("click", () => { events.splice(+b.dataset.i, 1); draw(); }));
+}
+
+function drawCum(c) {     // extra chances so far compared with a match with no events
+  const W = 1200, H = 200, m = {l: 54, r: 16, t: 16, b: 30};
+  const X = mn => m.l + mn / 94 * (W - m.l - m.r);
+  const d = (side, mode) => c.cum[`${side}_${mode}`].map((p, i) => [p[0], p[1] - c.cum[`${side}_none`][i][1]]);
+  const series = {hf: d("home", "full"), af: d("away", "full"), ho: d("home", "off"), ao: d("away", "off")};
+  const ext = Math.max(0.5, ...Object.values(series).flat().map(p => Math.abs(p[1]))) * 1.15;
+  const Y = v => m.t + (1 - (v + ext) / (2 * ext)) * (H - m.t - m.b);
+  const line = (arr, col, dash, w) => `<path d="M${arr.map(p => `${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("L")}" fill="none" stroke="${col}" stroke-width="${w}" ${dash ? 'stroke-dasharray="6 5" opacity="0.8"' : ""}/>`;
+  let s = `<rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="#151d18" rx="4"/>`;
+  const st = ext > 2 ? 1 : 0.5;
+  for (let v = -Math.floor(ext / st) * st; v <= ext; v += st) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v === 0 ? "#5a5a52" : "#26302a"}"/><text x="${m.l - 8}" y="${Y(v) + 4}" font-size="11" fill="#9a998f" text-anchor="end">${v > 0 ? "+" : ""}${v}</text>`;
+  s += `<line x1="${X(47)}" x2="${X(47)}" y1="${m.t}" y2="${H - m.b}" stroke="#5a5a52" stroke-dasharray="2 4"/>`;
+  for (const mn of [0, 15, 30, 45]) s += `<text x="${X(mn)}" y="${H - m.b + 16}" font-size="11" fill="#9a998f" text-anchor="middle">${mn}'</text><text x="${X(47 + mn)}" y="${H - m.b + 16}" font-size="11" fill="#9a998f" text-anchor="middle">${45 + mn}'</text>`;
+  s += `<text x="14" y="${(m.t + H - m.b) / 2}" font-size="11.5" fill="#c3c2b7" text-anchor="middle" transform="rotate(-90 14 ${(m.t + H - m.b) / 2})">Extra chances so far</text>`;
+  const last = series.hf.length - 1, lab = v => `${v >= 0 ? "+" : "−"}${fx(Math.abs(v))}`;
+  s += `<text x="${m.l + 8}" y="${m.t + 14}" font-size="12" fill="#c3c2b7">Extra chances so far, compared with the same teams in a match with no events · full match: `
+     + `<tspan fill="#3987e5" font-weight="600">Home ${lab(series.hf[last][1])}</tspan>  <tspan fill="#d95926" font-weight="600">Away ${lab(series.af[last][1])}</tspan></text>`;
+  s += line(series.ho, "#3987e5", true, 1.6) + line(series.ao, "#d95926", true, 1.6) + line(series.hf, "#3987e5", false, 2.4) + line(series.af, "#d95926", false, 2.4);
+  const svg = $("cum");
+  svg.innerHTML = s;
+  svg.setAttribute("aria-label", `Extra chances compared with a match with no events: home ${lab(series.hf[last][1])}, away ${lab(series.af[last][1])}.`);
+}
+
+// Illustrative scenarios: made-up inputs to explore the model, not real matches.
+const ev = (team, kind, matchMinute) => ({team, kind, half: matchMinute < 45 ? 1 : 2, t: (matchMinute < 45 ? matchMinute : matchMinute - 45) * 60});
+const SCENARIOS = {
+  example: () => [ev("home", "chance", 11), ev("home", "goal", 24), ev("away", "chance", 33), ev("away", "chance", 54), ev("away", "goal", 70)],
+  early: () => [ev("home", "goal", 6), ev("away", "chance", 14), ev("away", "chance", 21), ev("away", "chance", 38), ev("away", "chance", 52),
+                ev("away", "chance", 61), ev("away", "chance", 77), ev("away", "chance", 86)],
+  late: () => [ev("home", "chance", 18), ev("away", "chance", 30), ev("home", "goal", 63), ev("away", "chance", 71), ev("away", "goal", 84),
+               ev("home", "chance", 88), ev("home", "goal", 90)],
+  end2end: () => [5, 12, 19, 26, 33, 40, 50, 57, 64, 71, 78, 85].map((m_, i) => ev(i % 2 ? "away" : "home", "chance", m_)),
+};
+const EXAMPLE = SCENARIOS.example;
+$("scenario").addEventListener("change", e => { if (SCENARIOS[e.target.value]) { events = SCENARIOS[e.target.value](); draw(); } e.target.value = ""; });
+// shareable links: the match is stored in the address (#)
+function encode() {
+  return "m=" + events.map(e => `${e.team[0]}${e.kind[0]}${e.half}.${Math.round(e.t)}`).join(",") + `&ah=${$("ah").value}&aa=${$("aa").value}`;
+}
+function decode(h) {
+  try {
+    const q = new URLSearchParams(h.replace(/^#/, ""));
+    if (!q.has("m")) return false;
+    const out = [];
+    for (const tok of q.get("m").split(",").filter(Boolean)) {
+      const mt = /^([ha])([cg])([12])\.(\d+)$/.exec(tok);
+      if (!mt) return false;
+      out.push({team: mt[1] === "h" ? "home" : "away", kind: mt[2] === "c" ? "chance" : "goal", half: +mt[3], t: Math.min(+mt[4], HALF - 1)});
+    }
+    events = out;
+    for (const k of ["ah", "aa"]) if (q.has(k) && !isNaN(+q.get(k))) $(k).value = Math.max(-40, Math.min(60, +q.get(k)));
+    return true;
+  } catch (err) { return false; }
+}
+$("share").addEventListener("click", async () => {
+  const url = location.href.split("#")[0] + "#" + encode();
+  try { await navigator.clipboard.writeText(url); $("share").textContent = "Link copied"; }
+  catch (err) { $("share").textContent = "Copy failed"; }
+  setTimeout(() => { $("share").textContent = "Copy link"; }, 1800);
+});
+document.querySelectorAll(".tool").forEach(b => b.addEventListener("click", () => {
+  tool = b.dataset.tool; document.querySelectorAll(".tool").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+}));
+$("clear").addEventListener("click", () => { events = []; draw(); });
+$("addbtn").addEventListener("click", () => {
+  const mn = Math.max(0, Math.min(93.9, +$("nm").value || 0));
+  const [half, t] = mn < 45 ? [1, mn * 60] : [2, (mn - 45) * 60];
+  const [team, kind] = $("nt").value.split("-");
+  events.push({team, kind, half, t}); draw();
+});
+["ah", "aa"].forEach(id => $(id).addEventListener("input", draw));
+if (!decode(location.hash)) events = EXAMPLE();
+draw();
+</script>
+</body>
+</html>

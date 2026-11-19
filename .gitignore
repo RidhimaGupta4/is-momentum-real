@@ -1,0 +1,9 @@
+# StatsBomb data and derived event-level tables are not redistributed (StatsBomb user agreement)
+statsbomb-open-data/
+data/
+# Python / tooling
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+.DS_Store
